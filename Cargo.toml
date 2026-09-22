@@ -28,6 +28,30 @@ ron = "0.12.1"
 # Stable per-section content hashes (seed the draft now; cache keys later).
 blake3 = "1"
 
+# LLM-authored recipes (src/recipe.rs) and the sidecar cache (src/sidecar.rs).
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[features]
+# The LLM recipe tier (PLAN.md M1): plain instructed-JSON generation through
+# mistral.rs, ported from LocalGPT Verse. No `schemars` on purpose —
+# grammar-constrained generation hangs on GGUF (mistral.rs 0.8), so nothing
+# uses a schema; safety is RegionRecipe::clamped + the lenient parse.
+llm = ["dep:mistralrs", "dep:tokio"]
+# Apple-Silicon GPU path for the ~5 GB Q4_K_M (macOS-only; the CPU device
+# map can't hold it beside a renderer — same rule as Verse).
+llm-metal = ["llm", "mistralrs/metal"]
+
+[dependencies.mistralrs]
+version = "0.8"
+optional = true
+
+# Drives each generation's block_on runtime + timeout (mistral.rs is async).
+[dependencies.tokio]
+version = "1"
+features = ["rt", "time"]
+optional = true
+
 # Bevy's recommended dev profile: optimize dependencies but keep fast rebuilds
 # of our own crate.
 [profile.dev]

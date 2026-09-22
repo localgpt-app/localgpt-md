@@ -1,0 +1,90 @@
+{
+  "version": 1,
+  "generator": "localgpt-md",
+  "recipes": {
+    "0067f4f22c8c00e52b5902357c48b6568df21462626df917afe0afee7491e073": {
+      "accent": [
+        0.5,
+        0.3,
+        0.1
+      ],
+      "ground": [
+        0.4,
+        0.3,
+        0.2
+      ],
+      "landmark": {
+        "kind": "cube",
+        "scale": 1.5,
+        "emissive": 0.3
+      },
+      "props": {
+        "kind": "blocks",
+        "count": 8
+      }
+    },
+    "1136a68e5fc2abf3c6ffa25f25d5b2a0e200e6bbf5c3eeb10db6b490b8d81d93": {
+      "accent": [
+        0.0,
+        0.0,
+        1.0
+      ],
+      "ground": [
+        0.2,
+        0.2,
+        0.5
+      ],
+      "landmark": {
+        "kind": "column",
+        "scale": 1.5,
+        "emissive": 0.3
+      },
+      "props": {
+        "kind": "blocks",
+        "count": 6
+      }
+    },
+    "25782bcdc78a6d92383b572f3858cd3e5dcbe1d00580e0878b496fecfc52fd45": {
+      "accent": [
+        0.3,
+        0.1,
+        0.8
+      ],
+      "ground": [
+        0.2,
+        0.3,
+        0.5
+      ],
+      "landmark": {
+        "kind": "column",
+        "scale": 1.5,
+        "emissive": 0.2
+      },
+      "props": {
+        "kind": "blocks",
+        "count": 6
+      }
+    },
+    "42c00917f12647dc58ac2c74e63419812fa6b76deb140172a7dd1720ad6965ef": {
+      "accent": [
+        0.3,
+        0.6,
+        0.9
+      ],
+      "ground": [
+        0.4,
+        0.5,
+        0.7
+      ],
+      "landmark": {
+        "kind": "ring",
+        "scale": 1.5,
+        "emissive": 0.2
+      },
+      "props": {
+        "kind": "blocks",
+        "count": 6
+      }
+    }
+  }
+}

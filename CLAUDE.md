@@ -6,9 +6,10 @@ Guidance for Claude Code when working in this repository.
 
 LocalGPT MD opens a Markdown file and turns it into a walkable 3D world
 (Bevy 0.19). Each `##` section becomes a place; the file is watched and the
-world rebuilds on save. Standalone Cargo project (its own `[workspace]`),
-Apache-2.0. Siblings: LocalGPT Verse (song → world) and LocalGPT Gen
-(prompt → world).
+world rebuilds on save. An optional local LLM (`llm` feature, ported from
+LocalGPT Verse) restyles regions from the prose and caches per section.
+Standalone Cargo project (its own `[workspace]`), Apache-2.0. Siblings:
+LocalGPT Verse (song → world) and LocalGPT Gen (prompt → world).
 
 ## Commands
 
@@ -17,8 +18,11 @@ cargo run                                        # open samples/hello.md
 cargo run -- path/to/doc.md                      # open any Markdown file
 cargo run -- doc.md --print-ron                  # compiled world as RON, no window
 LOCALGPT_MD_SCREENSHOT=/tmp/shot.png cargo run   # render the first stop offscreen to a PNG, then exit
+./scripts/fetch-bonsai.sh                        # fetch the ~5.2 GB LLM (once)
+cargo run --features llm-metal --                # open with live LLM styling
+cargo run --features llm-metal -- doc.md --generate   # style all sections headless, exit
 cargo test
-cargo clippy --all-targets -- -D warnings
+cargo clippy --all-targets -- -D warnings        # and again with --features llm-metal
 cargo fmt
 ```
 
@@ -34,11 +38,14 @@ marked `IsDefaultUiCamera`, or the UI isn't drawn.
 ## Architecture
 
 `doc.rs` (Markdown → `Doc` of sections with BLAKE3 hashes) → `draft.rs`
-(`Doc` → `WorldManifest`) → `scene.rs` (manifest → Bevy entities), plus
-`tour.rs` (camera and caption) and `watch.rs` (polling hot reload).
+(`Doc` + recipes → `WorldManifest`) → `scene.rs` (manifest → Bevy entities),
+plus `tour.rs` (camera and caption), `watch.rs` (polling hot reload),
+`recipe.rs`/`sidecar.rs` (recipe type + cache), and `llm.rs`/`generation.rs`
+(the `llm` feature: model + background worker).
 
-- **`doc.rs` and `draft.rs` are pure**: no Bevy imports. Keep it that way;
-  they are what moves into a shared crate later (PLAN.md M5).
+- **`doc.rs`, `draft.rs`, `recipe.rs`, `sidecar.rs` are pure** (no Bevy
+  rendering; sidecar's only Bevy touch is the `Resource` derive). Keep them
+  that way; they are what moves into a shared crate later (PLAN.md M5).
 - **The world format is `localgpt-world-types`** (crates.io, serde-only).
   Don't invent a parallel scene format; if something is missing, add it
   upstream in `localgpt/crates/world-types`. Every manifest must pass
@@ -49,9 +56,21 @@ marked `IsDefaultUiCamera`, or the UI isn't drawn.
   them in sync so a manifest renders the same in both apps.
 - **Entity ids are stable per section**: `(section_index + 1) * 1000 + n`;
   ids 1–999 are global (ground, sun). Unchanged sections stay identical across
-  edits, which the per-section LLM cache (M2) relies on.
+  edits, which the per-section cache relies on.
 - **`Section::hash` is the cache key** for LLM output. Anything that should
   trigger regeneration must be part of the hashed text.
+- **Recipes degrade, never break**: every `RegionRecipe` field is optional,
+  everything is clamped (`RegionRecipe::clamped`, again on sidecar insert and
+  load), and a failed generation keeps the draft. The default (no-`llm`)
+  build still *applies* cached sidecars — which is why recipe/sidecar are
+  unconditionally compiled (targeted `#[allow(dead_code)]`, Verse `tier.rs`
+  precedent).
+- **The LLM constraints are Verse's, verified** (`../localgpt-verse/ARCHITECTURE.md`
+  §10): plain instructed-JSON generation with a lenient parse — mistral.rs
+  0.8's grammar-constrained `generate_structured` hangs on GGUF (so no
+  `schemars`); the 5 GB Q4_K_M needs `llm-metal` (macOS-only, never in the
+  Linux CI job); model discovery is `$LOCALGPT_MD_LLM` → `assets/llm` →
+  Verse's `assets/llm`.
 
 ## Bevy 0.19 notes
 
@@ -63,12 +82,13 @@ buffered events are messages (`MessageWriter<AppExit>`); hierarchy is
 
 ## Plan and reuse
 
-See PLAN.md. The LLM tiers get ported from LocalGPT Verse (`src/llm.rs`,
-`src/recipe.rs`, `src/agent.rs`, `src/agent_types.rs`, `src/tier.rs`) behind
-`llm` / `llm-metal` features. Read Verse's `ARCHITECTURE.md` §10 first: it
-records the mistral.rs 0.8 constraints (grammar-constrained generation hangs
-on GGUF; the 8B Q4_K_M model needs Metal). Verse and LocalGPT are Apache-2.0,
-so copying from them is fine; name the source in a comment.
+See PLAN.md. M0–M2 are done (draft, LLM recipe tier, sidecar cache). Next:
+M3 (agent tier — Verse's `agent.rs`/`agent_types.rs` tool-calling port),
+M4 (genres, `deck` first), M5 (extract the shared runtime). Verse and
+LocalGPT are Apache-2.0, so copying from them is fine; name the source in a
+comment. Model notes: Bonsai-8B Q4_K_M is the verified default; stock
+Qwen3-8B-Instruct Q4_K_M is a drop-in A/B; the newer ternary Bonsai
+generations (1-bit/2-bit) cannot run on mistral.rs 0.8 — skip them.
 
 ## Rules
 

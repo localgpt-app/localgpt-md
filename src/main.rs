@@ -1,17 +1,25 @@
 //! LocalGPT MD — open a Markdown file and walk through it as a 3D world.
 //!
-//! Scaffold milestone (PLAN.md M0): every `##` section becomes a place laid
-//! out by a rule-based draft, ←/→ walks between them, and saving the file
-//! rebuilds the world. The local-LLM tiers ported from LocalGPT Verse come
-//! next (PLAN.md M1).
+//! Every `##` section becomes a place: a rule-based draft lays it out
+//! instantly (PLAN.md M0), the local LLM restyles it from the prose when the
+//! `llm` feature and a model are present (M1), and results are cached per
+//! section hash in a sidecar next to the document (M2) so nothing is ever
+//! generated twice. ←/→ walks between sections; saving the file rebuilds.
 //!
 //! Pipeline: [`doc`] (Markdown → sections) → [`draft`] (sections →
-//! `WorldManifest`, LocalGPT's shared world format) → [`scene`] (manifest →
-//! Bevy), with [`tour`] for navigation and [`watch`] for hot reload.
+//! `WorldManifest`, LocalGPT's shared world format, styled by [`recipe`] +
+//! [`sidecar`] entries) → [`scene`] (manifest → Bevy), with [`tour`] for
+//! navigation, [`watch`] for hot reload, and [`llm`]/[`gen`] for authoring.
 
 mod doc;
 mod draft;
+#[cfg(feature = "llm")]
+mod generation;
+#[cfg(feature = "llm")]
+mod llm;
+mod recipe;
 mod scene;
+mod sidecar;
 mod tour;
 mod watch;
 
@@ -30,26 +38,34 @@ use bevy::winit::WinitPlugin;
 use crate::scene::{CurrentWorld, TourCamera};
 
 const USAGE: &str = "\
-Usage: localgpt-md [FILE.md] [--print-ron]
+Usage: localgpt-md [FILE.md] [--print-ron] [--generate]
 
 Opens FILE.md (default: samples/hello.md) as a walkable 3D world. Each ##
 section becomes a place, and the world rebuilds whenever the file is saved.
 
   --print-ron   Print the compiled world as RON (LocalGPT Gen's world.ron
-                format) and exit without opening a window.
+                format) and exit without opening a window. Cached LLM recipes
+                (the .world.json sidecar) are applied.
+  --generate    Have the local LLM style every section without a cached
+                recipe, write the sidecar, and exit — no window. Needs the
+                `llm`/`llm-metal` feature and a model (scripts/fetch-bonsai.sh).
 
 Environment:
   LOCALGPT_MD_SCREENSHOT=out.png   Render the first stop offscreen (no window),
-                                   save it as a PNG, and exit.";
+                                   save it as a PNG, and exit.
+  LOCALGPT_MD_LLM=dir              Model directory (default: assets/llm, then
+                                   ../localgpt-verse/assets/llm).";
 
 const DEFAULT_DOC: &str = "samples/hello.md";
 
 fn main() -> AppExit {
     let mut path = None;
     let mut print_ron = false;
+    let mut generate = false;
     for arg in std::env::args().skip(1) {
         match arg.as_str() {
             "--print-ron" => print_ron = true,
+            "--generate" => generate = true,
             "-h" | "--help" => {
                 println!("{USAGE}");
                 return AppExit::Success;
@@ -62,8 +78,10 @@ fn main() -> AppExit {
         }
     }
     let path = path.unwrap_or_else(|| PathBuf::from(DEFAULT_DOC));
+    let sidecar_path = path.with_extension("world.json");
+    let store = sidecar::RecipeStore::load(&sidecar_path);
 
-    let world = match load(&path) {
+    let world = match load(&path, &store) {
         Ok(world) => world,
         Err(err) => {
             eprintln!("localgpt-md: {}: {err}", path.display());
@@ -72,6 +90,22 @@ fn main() -> AppExit {
     };
     for issue in draft::validate(&world.manifest) {
         eprintln!("localgpt-md: {:?}: {}", issue.severity, issue.message);
+    }
+
+    if generate {
+        #[cfg(feature = "llm")]
+        {
+            return generate_headless(&world, store, &sidecar_path);
+        }
+        #[cfg(not(feature = "llm"))]
+        {
+            eprintln!(
+                "localgpt-md: --generate needs a build with the llm feature:\n  \
+                 cargo run --features llm-metal -- {} --generate",
+                path.display()
+            );
+            return AppExit::error();
+        }
     }
 
     if print_ron {
@@ -116,7 +150,15 @@ fn main() -> AppExit {
     }
     app.insert_resource(watch::DocSource::new(path))
         .insert_resource(world)
+        .insert_resource(store)
         .add_plugins((scene::ScenePlugin, tour::TourPlugin, watch::WatchPlugin));
+
+    // The worker owns a multi-GB model; skip it in the screenshot smoke run
+    // (which exits in seconds). Cached recipes still apply via the store.
+    #[cfg(feature = "llm")]
+    if smoke.is_none() {
+        app.add_plugins(generation::GenerationPlugin);
+    }
 
     if let Some(path) = smoke {
         app.insert_resource(Smoke::new(path))
@@ -126,16 +168,72 @@ fn main() -> AppExit {
     app.run()
 }
 
-/// Read, parse, and compile a document.
-fn load(path: &Path) -> std::io::Result<CurrentWorld> {
+/// Read, parse, and compile a document, applying whatever recipes the
+/// sidecar already holds for its sections.
+fn load(path: &Path, recipes: &sidecar::RecipeStore) -> std::io::Result<CurrentWorld> {
     let src = std::fs::read_to_string(path)?;
     let fallback_title = path.file_stem().map_or_else(
         || "Untitled".into(),
         |stem| stem.to_string_lossy().into_owned(),
     );
     let doc = doc::Doc::parse(&src, &fallback_title);
-    let manifest = draft::compile(&doc);
+    let manifest = draft::compile_with(&doc, recipes);
     Ok(CurrentWorld { doc, manifest })
+}
+
+/// `--generate` (PLAN.md M1): style every uncached section with the local
+/// LLM, headless — no window, no Bevy — then write the sidecar. One line per
+/// section keeps progress visible in a terminal or CI log.
+#[cfg(feature = "llm")]
+fn generate_headless(
+    world: &CurrentWorld,
+    mut store: sidecar::RecipeStore,
+    sidecar_path: &Path,
+) -> AppExit {
+    let mut model = match llm::RecipeModel::try_load() {
+        Some(model) => model,
+        None => {
+            eprintln!("localgpt-md: no model found — run scripts/fetch-bonsai.sh");
+            return AppExit::error();
+        }
+    };
+    let mut fresh = 0;
+    let mut failed = 0;
+    for section in &world.doc.sections {
+        if store.get(&section.hash).is_some() {
+            println!("have    {}", section.heading);
+            continue;
+        }
+        let started = std::time::Instant::now();
+        match model.generate(&section.heading, &section.body, world.doc.genre()) {
+            Some(recipe) => {
+                store.insert(&section.hash, recipe);
+                fresh += 1;
+                println!(
+                    "styled  {} ({:.1}s)",
+                    section.heading,
+                    started.elapsed().as_secs_f32()
+                );
+            }
+            None => failed += 1,
+        }
+    }
+    if let Err(err) = store.save(&world.doc) {
+        eprintln!("localgpt-md: {}: {err}", sidecar_path.display());
+        return AppExit::error();
+    }
+    println!(
+        "{} styled, {} failed, {} cached -> {}",
+        fresh,
+        failed,
+        store.len(),
+        sidecar_path.display()
+    );
+    if fresh == 0 && failed > 0 {
+        AppExit::error()
+    } else {
+        AppExit::Success
+    }
 }
 
 /// `LOCALGPT_MD_SCREENSHOT=out.png`: render the first stop offscreen once

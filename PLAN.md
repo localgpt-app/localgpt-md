@@ -15,26 +15,38 @@ Markdown front end.
 - Hot reload by polling the file (`watch.rs`); `--print-ron`; an offscreen
   screenshot mode for checking the render without a display.
 
-## M1 — Recipe tier: a local LLM per section
+## M1 — Recipe tier: a local LLM per section ✅
 
-- Port Verse's `llm.rs`, `recipe.rs`, and `tier.rs` behind `llm` and
-  `llm-metal` features (mistral.rs 0.8; Bonsai-8B Q4_K_M via Verse's
-  `scripts/fetch-bonsai.sh`).
-- Prompt per section: heading + body + genre → a region recipe (palette,
-  landmark kind, props, atmosphere), clamped on the Rust side. Any failure
-  keeps the draft.
-- Show the draft instantly and swap each region in as its recipe arrives,
-  from a background worker like Verse's analysis worker.
-- Carry over Verse's constraints (`ARCHITECTURE.md` §10): plain generation
-  with a lenient JSON parse, because grammar-constrained generation hangs on
-  GGUF; expect about 25 tokens/s on an M2 Max.
+- Ported Verse's `llm.rs` and the recipe idea behind `llm` / `llm-metal`
+  features (mistral.rs 0.8; Bonsai-8B Q4_K_M via `scripts/fetch-bonsai.sh`,
+  which also reuses a sibling Verse checkout's model). Verse's `tier.rs`
+  became a simpler lazy load inside the worker (load on first job, keep
+  resident).
+- Prompt per section: heading + body excerpt + genre → a `RegionRecipe`
+  (palette, landmark kind/scale/glow, prop kind/count), clamped on the Rust
+  side. Any failure keeps the draft; failures are sticky for the run.
+- The draft renders instantly; a background `std::thread` worker (Verse's
+  analysis-worker split, mpsc channels) styles uncached sections and each
+  region upgrades in place as its recipe lands. `--generate` runs the same
+  authoring headless.
+- Verse's constraints carried over verbatim (`ARCHITECTURE.md` §10): plain
+  generation with a lenient JSON parse (grammar-constrained generation hangs
+  on GGUF), no `schemars` dependency, Metal for the 5 GB quant.
+- Deliberately not in the recipe yet: atmosphere (fog/ambient are global in
+  the manifest — needs a per-region tint mechanism first).
 
-## M2 — Section cache (the "lockfile")
+## M2 — Section cache (the "lockfile") ✅
 
-- Cache LLM output per section hash in a sidecar next to the document, so an
-  unchanged section never regenerates and a shared `.md` plus its sidecar
-  renders identically on any machine.
-- Fill in `meta.model` and `meta.compliance` once LLM output is included.
+- `src/sidecar.rs`: `<doc>.world.json`, keyed by BLAKE3 of heading + body,
+  pruned to live sections on save, written atomically, clamped on load.
+  Unchanged sections never regenerate; a `.md` + sidecar renders identically
+  in any build (the default build applies cached recipes, it just can't
+  author them).
+- `meta.source` says "draft + llm recipe" when any recipe is applied.
+  `meta.model` still isn't set: the sidecar doesn't record which model
+  authored a recipe. Add a `model` field in sidecar v2 when a second model
+  becomes an option (Bonsai-8B vs stock Qwen3-8B are drop-in `--generate`
+  A/B candidates; the ternary Bonsai generations can't run on mistral.rs).
 
 ## M3 — Agent tier
 

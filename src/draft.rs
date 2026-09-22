@@ -12,6 +12,8 @@
 use localgpt_world_types as wt;
 
 use crate::doc::{Doc, Section};
+use crate::recipe::{LandmarkKind, LandmarkSpec, PropKind, PropSpec, RegionRecipe};
+use crate::sidecar::RecipeStore;
 
 /// Distance between consecutive regions along the path.
 const SPACING: f32 = 22.0;
@@ -28,13 +30,29 @@ const VIEW_OFFSET: [f32; 3] = [0.0, 4.0, 14.0];
 const SKY: [f32; 4] = [0.46, 0.56, 0.72, 1.0];
 const GROUND: [f32; 4] = [0.26, 0.31, 0.29, 1.0];
 
-/// Compile a document into a world manifest LocalGPT Gen can load.
+/// Compile a document into a world manifest LocalGPT Gen can load, with no
+/// recipes — the pure rule-based draft.
+///
+/// The bin always compiles with the sidecar store (even when it's empty);
+/// this no-recipe entry point is for tests and future callers.
+#[allow(dead_code)]
 pub fn compile(doc: &Doc) -> wt::WorldManifest {
+    compile_with(doc, &RecipeStore::in_memory())
+}
+
+/// Compile with LLM-authored recipes applied on top of the draft. A section
+/// whose hash has a cached recipe ([`crate::sidecar`]) is restyled by it;
+/// every other section — and every field a recipe leaves unset — keeps the
+/// rule-derived value.
+pub fn compile_with(doc: &Doc, recipes: &RecipeStore) -> wt::WorldManifest {
     let mut entities = vec![lead_in_ground(), sun()];
     let mut waypoints = Vec::with_capacity(doc.sections.len());
+    let mut llm_styled = false;
     for (index, section) in doc.sections.iter().enumerate() {
         let center = region_center(index);
-        entities.extend(region(index, section, center));
+        let recipe = recipes.get(&section.hash);
+        llm_styled |= recipe.is_some();
+        entities.extend(region(index, section, center, recipe));
         waypoints.push(wt::TourWaypoint {
             position: add(center, VIEW_OFFSET),
             look_at: [center[0], 2.0, center[2]],
@@ -66,7 +84,7 @@ pub fn compile(doc: &Doc) -> wt::WorldManifest {
 
     wt::WorldManifest {
         version: wt::world::WORLD_SCHEMA_VERSION,
-        meta: meta(doc),
+        meta: meta(doc, llm_styled),
         environment: Some(wt::EnvironmentDef {
             background_color: Some(SKY),
             ambient_intensity: Some(350.0),
@@ -93,14 +111,18 @@ pub fn validate(manifest: &wt::WorldManifest) -> Vec<wt::ValidationIssue> {
     wt::validation::validate_entities(&manifest.entities, &wt::WorldLimits::default())
 }
 
-fn meta(doc: &Doc) -> wt::WorldMeta {
+fn meta(doc: &Doc, llm_styled: bool) -> wt::WorldMeta {
     wt::WorldMeta {
         name: doc.title.clone(),
         description: doc.intro.lines().next().map(str::to_string),
         biome: None,
         time_of_day: None,
         tags: Some(vec!["localgpt-md".into(), doc.genre().to_string()]),
-        source: Some("localgpt-md draft".into()),
+        source: Some(if llm_styled {
+            "localgpt-md draft + llm recipe".into()
+        } else {
+            "localgpt-md draft".into()
+        }),
         variation_group: None,
         variation: None,
         prompt: None,
@@ -146,12 +168,25 @@ fn sun() -> wt::WorldEntity {
 
 /// A section's region: a strip of ground, a platform, a landmark, a ring of
 /// props, and a lamp. Size comes from the amount of prose; colour, shape,
-/// and arrangement from the section hash.
-fn region(index: usize, section: &Section, center: [f32; 3]) -> Vec<wt::WorldEntity> {
+/// and arrangement from the section hash — unless a recipe (PLAN.md M1)
+/// overrides the palette, landmark, or props for this section.
+fn region(
+    index: usize,
+    section: &Section,
+    center: [f32; 3],
+    recipe: Option<&RegionRecipe>,
+) -> Vec<wt::WorldEntity> {
     let seed = section.seed();
     let words = section.body.split_whitespace().count();
     let hue = (seed % 360) as f32;
-    let accent = hsl(hue, 0.55, 0.58);
+    let accent = recipe
+        .and_then(|r| r.accent)
+        .map(|[r, g, b]| [r, g, b, 1.0])
+        .unwrap_or_else(|| hsl(hue, 0.55, 0.58));
+    let ground_color = recipe
+        .and_then(|r| r.ground)
+        .map(|[r, g, b]| [r, g, b, 1.0])
+        .unwrap_or(GROUND);
     let [cx, _, cz] = center;
 
     let base_id = (index as u64 + 1) * 1000;
@@ -170,7 +205,7 @@ fn region(index: usize, section: &Section, center: [f32; 3]) -> Vec<wt::WorldEnt
         x: GROUND_WIDTH,
         z: SPACING,
     });
-    ground.material = Some(material(GROUND, 0.95, [0.0; 4]));
+    ground.material = Some(material(ground_color, 0.95, [0.0; 4]));
     out.push(ground);
 
     let mut platform = entity("platform", [cx, PLATFORM_TOP / 2.0, cz]);
@@ -181,10 +216,28 @@ fn region(index: usize, section: &Section, center: [f32; 3]) -> Vec<wt::WorldEnt
     platform.material = Some(material(hsl(hue, 0.12, 0.72), 0.9, [0.0; 4]));
     out.push(platform);
 
-    // Longer sections get taller landmarks.
-    let height = 2.5 + (words as f32 / 20.0).min(7.0);
-    let (shape, y, rotation_degrees) = match (seed >> 16) % 6 {
-        0 => (
+    // Longer sections get taller landmarks. A recipe can override the kind,
+    // the scale, and the glow; the height's base stays rule-derived.
+    let base_height = 2.5 + (words as f32 / 20.0).min(7.0);
+    let LandmarkSpec {
+        kind: landmark_kind,
+        scale,
+        emissive,
+    } = recipe.and_then(|r| r.landmark).unwrap_or(LandmarkSpec {
+        kind: match (seed >> 16) % 6 {
+            0 => LandmarkKind::Pyramid,
+            1 => LandmarkKind::Cone,
+            2 => LandmarkKind::Column,
+            3 => LandmarkKind::Cube,
+            4 => LandmarkKind::Orb,
+            _ => LandmarkKind::Ring,
+        },
+        scale: 1.0,
+        emissive: 0.6,
+    });
+    let height = base_height * scale;
+    let (shape, y, rotation_degrees) = match landmark_kind {
+        LandmarkKind::Pyramid => (
             wt::Shape::Pyramid {
                 base_x: 3.2,
                 base_z: 3.2,
@@ -193,7 +246,7 @@ fn region(index: usize, section: &Section, center: [f32; 3]) -> Vec<wt::WorldEnt
             PLATFORM_TOP + height / 2.0,
             [0.0; 3],
         ),
-        1 => (
+        LandmarkKind::Cone => (
             wt::Shape::Cone {
                 radius: 1.6,
                 height,
@@ -201,7 +254,7 @@ fn region(index: usize, section: &Section, center: [f32; 3]) -> Vec<wt::WorldEnt
             PLATFORM_TOP + height / 2.0,
             [0.0; 3],
         ),
-        2 => (
+        LandmarkKind::Column => (
             wt::Shape::Cylinder {
                 radius: 0.8,
                 height,
@@ -209,7 +262,7 @@ fn region(index: usize, section: &Section, center: [f32; 3]) -> Vec<wt::WorldEnt
             PLATFORM_TOP + height / 2.0,
             [0.0; 3],
         ),
-        3 => (
+        LandmarkKind::Cube => (
             wt::Shape::Cuboid {
                 x: 1.8,
                 y: height,
@@ -219,7 +272,7 @@ fn region(index: usize, section: &Section, center: [f32; 3]) -> Vec<wt::WorldEnt
             [0.0, 45.0, 0.0],
         ),
         // A floating orb.
-        4 => (
+        LandmarkKind::Orb => (
             wt::Shape::Sphere {
                 radius: height * 0.3,
             },
@@ -227,7 +280,7 @@ fn region(index: usize, section: &Section, center: [f32; 3]) -> Vec<wt::WorldEnt
             [0.0; 3],
         ),
         // An upright ring, facing the viewpoint.
-        _ => (
+        LandmarkKind::Ring => (
             wt::Shape::Torus {
                 major_radius: height * 0.35,
                 minor_radius: 0.22,
@@ -239,28 +292,47 @@ fn region(index: usize, section: &Section, center: [f32; 3]) -> Vec<wt::WorldEnt
     let mut landmark = entity("landmark", [cx, y, cz]);
     landmark.transform.rotation_degrees = rotation_degrees;
     landmark.shape = Some(shape);
-    landmark.material = Some(material(accent, 0.35, glow(accent, 0.6)));
+    landmark.material = Some(material(accent, 0.35, glow(accent, emissive)));
     out.push(landmark);
 
-    let props = 3 + ((seed >> 24) % 5) as usize + (words / 30).min(4);
+    let prop_spec: Option<PropSpec> = recipe.and_then(|r| r.props);
+    let props = prop_spec.map_or(3 + ((seed >> 24) % 5) as usize + (words / 30).min(4), |p| {
+        p.count as usize
+    });
     let offset = ((seed >> 32) % 360) as f32;
     let prop_color = hsl(hue + 180.0, 0.35, 0.7);
     for k in 0..props {
         let angle = (offset + k as f32 * 360.0 / props as f32).to_radians();
         let r = PLATFORM_RADIUS - 1.1;
         let size = 0.35 + ((seed >> (k % 8 * 4)) & 0xF) as f32 / 40.0;
-        let (shape, half_height) = if (seed >> k) & 1 == 0 {
-            let side = size * 1.4;
-            (
-                wt::Shape::Cuboid {
-                    x: side,
-                    y: side,
-                    z: side,
-                },
-                side / 2.0,
-            )
-        } else {
-            (wt::Shape::Sphere { radius: size * 0.8 }, size * 0.8)
+        let (shape, half_height) = match prop_spec.map(|p| p.kind) {
+            Some(PropKind::Spheres) => (wt::Shape::Sphere { radius: size * 0.8 }, size * 0.8),
+            Some(PropKind::Crystals) => {
+                let crystal = size * 1.8;
+                (
+                    wt::Shape::Cone {
+                        radius: size * 0.45,
+                        height: crystal,
+                    },
+                    crystal / 2.0,
+                )
+            }
+            // No recipe for the kind: the rule path mixes blocks and spheres
+            // by parity, as it always did.
+            _ if prop_spec.is_none() && (seed >> k) & 1 != 0 => {
+                (wt::Shape::Sphere { radius: size * 0.8 }, size * 0.8)
+            }
+            _ => {
+                let side = size * 1.4;
+                (
+                    wt::Shape::Cuboid {
+                        x: side,
+                        y: side,
+                        z: side,
+                    },
+                    side / 2.0,
+                )
+            }
         };
         let position = [
             cx + r * angle.cos(),
@@ -400,5 +472,56 @@ mod tests {
         assert!(world.tours.is_empty());
         assert!(world.camera.is_none());
         assert_eq!(world.entities.len(), 2); // lead-in ground + sun
+    }
+
+    #[test]
+    fn recipe_restyling_is_deterministic_and_local() {
+        let doc = Doc::parse(HELLO, "hello");
+        let mut store = RecipeStore::in_memory();
+        store.insert(
+            &doc.sections[0].hash,
+            RegionRecipe {
+                accent: Some([0.9, 0.3, 0.1]),
+                ground: Some([0.5, 0.4, 0.3]),
+                landmark: Some(LandmarkSpec {
+                    kind: LandmarkKind::Orb,
+                    scale: 1.5,
+                    emissive: 0.9,
+                }),
+                props: Some(PropSpec {
+                    kind: PropKind::Crystals,
+                    count: 10,
+                }),
+            },
+        );
+        let with = compile_with(&doc, &store);
+        let without = compile(&doc);
+
+        // The restyled region changed, and only it.
+        assert_ne!(region_of(&with, "s01-"), region_of(&without, "s01-"));
+        for prefix in ["s02-", "s03-", "s04-"] {
+            assert_eq!(region_of(&with, prefix), region_of(&without, prefix));
+        }
+
+        // The recipe's prop count and landmark kind actually arrived.
+        let props = with
+            .entities
+            .iter()
+            .filter(|e| e.name.0.starts_with("s01-prop-"))
+            .count();
+        assert_eq!(props, 10);
+        let is_sphere = matches!(
+            with.entities
+                .iter()
+                .find(|e| e.name.0 == "s01-landmark")
+                .unwrap()
+                .shape,
+            Some(wt::Shape::Sphere { .. })
+        );
+        assert!(is_sphere);
+
+        // Deterministic with the store, and still valid for Gen.
+        assert_eq!(compile_with(&doc, &store), with);
+        assert!(validate(&with).is_empty());
     }
 }

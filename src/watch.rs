@@ -41,7 +41,12 @@ fn modified_time(path: &Path) -> Option<SystemTime> {
     std::fs::metadata(path).and_then(|m| m.modified()).ok()
 }
 
-fn poll(time: Res<Time>, mut source: ResMut<DocSource>, mut world: ResMut<CurrentWorld>) {
+fn poll(
+    time: Res<Time>,
+    mut source: ResMut<DocSource>,
+    store: Res<crate::sidecar::RecipeStore>,
+    mut world: ResMut<CurrentWorld>,
+) {
     if !source.timer.tick(time.delta()).just_finished() {
         return;
     }
@@ -52,7 +57,7 @@ fn poll(time: Res<Time>, mut source: ResMut<DocSource>, mut world: ResMut<Curren
     }
     source.modified = modified;
 
-    match crate::load(&source.path) {
+    match crate::load(&source.path, &store) {
         Ok(next) => {
             for issue in draft::validate(&next.manifest) {
                 warn!("{:?}: {}", issue.severity, issue.message);
