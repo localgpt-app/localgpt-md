@@ -98,7 +98,8 @@ cargo fmt --check
 ## Website
 
 [`website/`](website/) is the landing page for localgpt.md: static HTML, no
-build step.
+build step. `./scripts/deploy.sh` publishes it to Cloudflare as the
+`localgpt-md` Worker.
 
 ## License
 
