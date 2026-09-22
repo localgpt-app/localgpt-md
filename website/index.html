@@ -6,6 +6,7 @@
 <title>LocalGPT MD</title>
 <meta name="description" content="Open a Markdown file and walk through it as a 3D world. Every section becomes a place, and saving the file rebuilds the world. Runs on your machine.">
 <link rel="canonical" href="https://localgpt.md/">
+<link rel="icon" href="localgpt-icon.svg" type="image/svg+xml">
 <style>
   :root {
     --bg: #f6f3ec;
@@ -58,7 +59,11 @@
     display: flex; align-items: center; justify-content: space-between; gap: 16px;
     padding: 20px 0;
   }
-  .wordmark { font-weight: 700; letter-spacing: -0.01em; color: var(--ink); text-decoration: none; }
+  .wordmark {
+    display: inline-flex; align-items: center; gap: 10px;
+    font-weight: 700; letter-spacing: -0.01em; color: var(--ink); text-decoration: none;
+  }
+  .wordmark .mark { width: 26px; height: 26px; display: block; }
   .wordmark span { color: var(--accent); }
   .family { font-size: 15px; color: var(--muted); text-decoration: none; }
   .family:hover { color: var(--ink); }
@@ -125,7 +130,7 @@
 <body>
   <div class="wrap">
     <header class="top">
-      <a class="wordmark" href="/">LocalGPT <span>MD</span></a>
+      <a class="wordmark" href="/"><img class="mark" src="localgpt-icon.svg" alt="">LocalGPT <span>MD</span></a>
       <a class="family" href="https://localgpt.app">Part of LocalGPT &rarr;</a>
     </header>
 
