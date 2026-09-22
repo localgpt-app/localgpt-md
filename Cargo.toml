@@ -1,0 +1,37 @@
+[package]
+name = "localgpt-md"
+version = "0.1.0"
+edition = "2024"
+license = "Apache-2.0"
+description = "LocalGPT MD — open a Markdown file and walk through it as a 3D world"
+repository = "https://github.com/localgpt-app/localgpt-md"
+
+# Its own workspace root, so a checkout nested inside another Cargo workspace
+# (say, beside other Rust projects in a monorepo) is never absorbed into it.
+[workspace]
+
+[dependencies]
+# `system_font_discovery` lets parley/fontique fall back to OS fonts, so CJK
+# and other non-Latin headings render instead of showing as blank boxes.
+bevy = { version = "0.19", features = ["system_font_discovery"] }
+
+# Markdown → sections. Parsing only; the `html` renderer isn't needed.
+pulldown-cmark = { version = "0.13", default-features = false }
+
+# The shared LocalGPT world data model (serde-only, no Bevy). Compiling a
+# document into a `WorldManifest` keeps MD worlds loadable by LocalGPT Gen.
+localgpt-world-types = "0.3.6"
+
+# `--print-ron`: the same serializer and version Gen uses for world.ron.
+ron = "0.12.1"
+
+# Stable per-section content hashes (seed the draft now; cache keys later).
+blake3 = "1"
+
+# Bevy's recommended dev profile: optimize dependencies but keep fast rebuilds
+# of our own crate.
+[profile.dev]
+opt-level = 1
+
+[profile.dev.package."*"]
+opt-level = 3
