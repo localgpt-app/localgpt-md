@@ -27,5 +27,6 @@ except the files listed in `.assetsignore`.
 Any other static host (GitHub Pages, Netlify) also works — serve the
 directory directly.
 
+The header links to the sibling app [verse.localgpt.app](https://verse.localgpt.app).
 The page links back to [localgpt.app](https://localgpt.app), the main
 LocalGPT site, and should keep doing so.
