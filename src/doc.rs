@@ -1,5 +1,6 @@
-//! Markdown → [`Doc`]: a title, front matter, and one [`Section`] per `##`
-//! heading — the unit that becomes a place in the world.
+//! Markdown → [`Doc`]: a title, front matter, and one [`Section`] per place
+//! — a `##` heading in the `world` genre, or a `---`-separated slide in the
+//! `deck` genre (Marp/Slidev style).
 //!
 //! Pure (no Bevy), like [`crate::draft`], so both can move into a shared
 //! crate later (PLAN.md M5).
@@ -15,9 +16,10 @@ pub struct Doc {
     pub title: String,
     /// `key: value` lines from a leading `---` block, e.g. `genre: deck`.
     pub front_matter: BTreeMap<String, String>,
-    /// Prose before the first section.
+    /// Prose before the first section — in a deck, the title slide's body.
     pub intro: String,
-    /// One per `##` heading (and any `#` after the title), in document order.
+    /// One per `##` heading (world genre) or slide (deck genre), in
+    /// document order.
     pub sections: Vec<Section>,
 }
 
@@ -28,8 +30,8 @@ pub struct Section {
     /// Paragraphs, list items, and `###` sub-headings as plain text, one per
     /// line. Code blocks are left out — they aren't scenery.
     pub body: String,
-    /// BLAKE3 of heading + body: seeds the draft today and keys the LLM cache
-    /// later, so an unchanged section never regenerates.
+    /// BLAKE3 of heading + body: seeds the draft and keys the LLM cache, so
+    /// an unchanged section never regenerates.
     pub hash: blake3::Hash,
 }
 
@@ -53,7 +55,8 @@ impl Section {
 }
 
 impl Doc {
-    /// Parse Markdown. A document without `##` headings becomes one section.
+    /// Parse Markdown. A document without sections becomes one section; a
+    /// `deck` splits on `---` separators instead of `##` headings.
     pub fn parse(src: &str, fallback_title: &str) -> Self {
         let options = Options::ENABLE_YAML_STYLE_METADATA_BLOCKS
             | Options::ENABLE_TABLES
@@ -68,14 +71,26 @@ impl Doc {
         let mut heading: Option<(HeadingLevel, String)> = None;
         let mut in_metadata = false;
         let mut in_code = false;
+        // Set by the first `---` slide separator (deck genre only).
+        let mut seen_rule = false;
 
         for event in Parser::new_ext(src, options) {
+            // Front matter arrives before any separator, so the genre is
+            // known by the time a Rule can matter — evaluate it lazily.
+            let deck = is_deck_genre(&front_matter);
             match event {
                 Event::Start(Tag::MetadataBlock(_)) => in_metadata = true,
                 Event::End(TagEnd::MetadataBlock(_)) => in_metadata = false,
                 Event::Start(Tag::CodeBlock(_)) => in_code = true,
                 Event::End(TagEnd::CodeBlock) => in_code = false,
                 Event::Text(text) if in_metadata => parse_front_matter(&text, &mut front_matter),
+                Event::Rule if deck && !in_code && !in_metadata => {
+                    // A `---` separator starts a new slide. Content before
+                    // the first one (the title slide) keeps accumulating in
+                    // `intro` and becomes section 0 at the end of the parse.
+                    seen_rule = true;
+                    sections.push((String::new(), String::new()));
+                }
                 Event::Start(Tag::Heading { level, .. }) => heading = Some((level, String::new())),
                 Event::End(TagEnd::Heading(_)) => {
                     let Some((level, text)) = heading.take() else {
@@ -86,7 +101,21 @@ impl Doc {
                         HeadingLevel::H1 if title.is_none() && sections.is_empty() => {
                             title = Some(text);
                         }
-                        HeadingLevel::H1 | HeadingLevel::H2 => sections.push((text, String::new())),
+                        HeadingLevel::H1 | HeadingLevel::H2 if !deck => {
+                            sections.push((text, String::new()));
+                        }
+                        _ if deck => match sections.last_mut() {
+                            // The first heading in a slide names it, at any
+                            // level (Marp titles slides with `#` or `##`).
+                            Some((heading, _)) if heading.is_empty() => *heading = text,
+                            // Later headings are body lines, like `###` in
+                            // the world genre.
+                            Some((_, body)) => {
+                                body.push_str(&text);
+                                body.push('\n');
+                            }
+                            None => sections.push((text, String::new())),
+                        },
                         _ => {
                             let body = current_body(&mut intro, &mut sections);
                             body.push_str(&text);
@@ -110,8 +139,19 @@ impl Doc {
             }
         }
 
+        let deck = is_deck_genre(&front_matter);
         let title = title.unwrap_or_else(|| fallback_title.to_string());
         let intro = intro.trim().to_string();
+        if deck {
+            // Slides with neither heading nor body (a trailing or doubled
+            // `---`) drop out.
+            sections
+                .retain(|(heading, body)| !heading.trim().is_empty() || !body.trim().is_empty());
+            // Everything before the first separator was the title slide.
+            if seen_rule && !intro.is_empty() {
+                sections.insert(0, (title.clone(), intro.clone()));
+            }
+        }
         let mut sections: Vec<Section> = sections
             .into_iter()
             .map(|(heading, body)| Section::new(heading, &body))
@@ -127,13 +167,23 @@ impl Doc {
         }
     }
 
-    /// The `genre` front-matter key, `world` when absent. Only `world` is
-    /// implemented so far; `deck` is next (PLAN.md M4).
+    /// The `genre` front-matter key, `world` when absent. `world` and `deck`
+    /// are implemented (PLAN.md M4).
     pub fn genre(&self) -> &str {
         self.front_matter
             .get("genre")
             .map_or("world", String::as_str)
     }
+
+    /// True when front matter says `genre: deck` — sections are slides split
+    /// on `---` separators, laid out along a straight presentation path.
+    pub fn is_deck(&self) -> bool {
+        self.genre() == "deck"
+    }
+}
+
+fn is_deck_genre(front_matter: &BTreeMap<String, String>) -> bool {
+    front_matter.get("genre").is_some_and(|g| g == "deck")
 }
 
 /// The text currently being appended to: the last section, or the intro.
@@ -168,7 +218,7 @@ mod tests {
     use super::*;
 
     const SAMPLE: &str = "---
-genre: deck
+genre: world
 note: \"quoted\"
 ---
 
@@ -197,11 +247,43 @@ let code = 1;
 Text with `inline` code.
 ";
 
+    const DECK: &str = r#"---
+genre: deck
+---
+
+# Markdown, as a place
+
+A talk you can walk through.
+
+---
+
+## One file, one world
+
+- every section is a place
+- save the file and it rebuilds
+
+---
+
+## Read by a local model
+
+Runs the recipe tier headless:
+
+```bash
+cargo run --features llm-metal -- deck.md --generate
+```
+
+---
+
+## Thank you
+
+github.com/localgpt-app/localgpt-md
+"#;
+
     #[test]
     fn title_front_matter_and_sections() {
         let doc = Doc::parse(SAMPLE, "fallback");
         assert_eq!(doc.title, "The Title");
-        assert_eq!(doc.genre(), "deck");
+        assert_eq!(doc.genre(), "world");
         assert_eq!(doc.front_matter["note"], "quoted");
         assert_eq!(doc.intro, "Intro line.");
         let headings: Vec<_> = doc.sections.iter().map(|s| s.heading.as_str()).collect();
@@ -211,6 +293,60 @@ Text with `inline` code.
             "A paragraph that wraps.\none\ntwo\nDetail\nMore."
         );
         assert_eq!(doc.sections[1].body, "Text with inline code.");
+    }
+
+    #[test]
+    fn deck_splits_on_rule_separators() {
+        let doc = Doc::parse(DECK, "deck");
+        assert!(doc.is_deck());
+        assert_eq!(doc.title, "Markdown, as a place");
+        let headings: Vec<_> = doc.sections.iter().map(|s| s.heading.as_str()).collect();
+        assert_eq!(
+            headings,
+            [
+                "Markdown, as a place",
+                "One file, one world",
+                "Read by a local model",
+                "Thank you",
+            ]
+        );
+        // The title slide carries the pre-separator prose as its body.
+        assert_eq!(doc.sections[0].body, "A talk you can walk through.");
+        assert_eq!(
+            doc.sections[1].body,
+            "every section is a place\nsave the file and it rebuilds"
+        );
+        // Fenced code is not scenery.
+        assert_eq!(doc.sections[2].body, "Runs the recipe tier headless:");
+        assert_eq!(doc.sections[3].body, "github.com/localgpt-app/localgpt-md");
+    }
+
+    #[test]
+    fn deck_without_separators_is_one_slide() {
+        let doc = Doc::parse("---\ngenre: deck\n---\n\n# T\n\none.\n\ntwo.", "d");
+        assert_eq!(doc.sections.len(), 1);
+        assert_eq!(doc.sections[0].heading, "T");
+        assert_eq!(doc.sections[0].body, "one.\ntwo.");
+    }
+
+    #[test]
+    fn deck_drops_empty_slides() {
+        // A trailing separator (and a doubled one) yields no empty slide.
+        // Separators are blank-line padded, as Marp decks are — a bare `---`
+        // directly under text is a CommonMark setext H2, not a separator.
+        let doc = Doc::parse("---\ngenre: deck\n---\n\n# T\n\ns\n\n---\n\n---\n", "d");
+        let headings: Vec<_> = doc.sections.iter().map(|s| s.heading.as_str()).collect();
+        assert_eq!(headings, ["T"]);
+        assert_eq!(doc.sections[0].body, "s");
+    }
+
+    #[test]
+    fn world_genre_ignores_rule_separators() {
+        let doc = Doc::parse("# T\n\nabove\n\n---\n\nbelow\n\n## S\n", "d");
+        assert!(!doc.is_deck());
+        let headings: Vec<_> = doc.sections.iter().map(|s| s.heading.as_str()).collect();
+        assert_eq!(headings, ["S"]);
+        assert_eq!(doc.intro, "above\nbelow");
     }
 
     #[test]
@@ -230,6 +366,15 @@ Text with `inline` code.
         assert_ne!(before.sections[0].hash, after.sections[0].hash);
         assert_eq!(before.sections[1].hash, after.sections[1].hash);
         assert_eq!(before.sections[1].seed(), after.sections[1].seed());
+    }
+
+    #[test]
+    fn deck_slide_hash_tracks_edits() {
+        let before = Doc::parse(DECK, "deck");
+        let after = Doc::parse(&DECK.replace("save the file", "saving the file"), "deck");
+        assert_ne!(before.sections[1].hash, after.sections[1].hash);
+        assert_eq!(before.sections[0].hash, after.sections[0].hash);
+        assert_eq!(before.sections[3].hash, after.sections[3].hash);
     }
 
     #[test]

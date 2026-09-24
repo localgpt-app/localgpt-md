@@ -181,15 +181,28 @@ fn locate_model_in(dir: &Path) -> Option<(PathBuf, String, String)> {
 
 /// The prompt: system describes the JSON contract; user carries the section.
 fn build_prompt(heading: &str, body: &str, genre: &str) -> mistralrs::RequestBuilder {
-    let system = "You design one region of a calm, walkable 3D world that reflects one \
+    let genre_note = if genre == "deck" {
+        "This section is one slide of a presentation: pick ONE focal idea — \
+the slide's key message becomes the landmark — and derive the palette from \
+the slide's own subject, so each slide's stage feels different from the \
+last."
+    } else {
+        "Match the setting the text describes: a night shore wants deep \
+blues and a low glow; a library wants warm ambers and dense blocks like \
+shelves."
+    };
+    let system = format!(
+        "You design one region of a calm, walkable 3D world that reflects one \
 section of a document. Reply with ONE JSON object only (no prose, no code fences) with \
 these optional fields: accent ([r,g,b] in 0..1 — the region's signature colour), \
-ground ([r,g,b] in 0..1 — the ground tint), landmark ({kind: \
-\"pyramid\"|\"cone\"|\"column\"|\"cube\"|\"orb\"|\"ring\", scale: 0.5..2.5, \
-emissive: 0..1}), props ({kind: \"blocks\"|\"spheres\"|\"crystals\", count: 3..12}). \
-Let the text decide everything: a night shore wants deep blues and a low glow; a \
-library wants warm ambers and dense blocks like shelves. Prefer muted, tasteful \
-colours over neon.";
+ground ([r,g,b] in 0..1 — the ground tint), landmark ({{
+kind: \"pyramid\"|\"cone\"|\"column\"|\"cube\"|\"orb\"|\"ring\", scale: 0.5..2.5, \
+emissive: 0..1}}), props ({{kind: \"blocks\"|\"spheres\"|\"crystals\", count: 3..12}}). \
+Let the text decide everything, and make this region's look its OWN — a shore and a \
+library must not share a palette. {genre_note} Colours are muted and desaturated \
+(dusk light, weathered stone, deep water — never pure primaries like [0,0,1] or \
+[1,0,0], never neon) yet still distinct and specific to this text."
+    );
 
     let user = format!(
         "Document genre: {genre}.\nSection heading: \"{heading}\".\nSection text: \"{}\".\n\

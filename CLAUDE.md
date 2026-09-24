@@ -14,7 +14,8 @@ LocalGPT Verse (song → world) and LocalGPT Gen (prompt → world).
 ## Commands
 
 ```bash
-cargo run                                        # open samples/hello.md
+cargo run                                        # open samples/hello.md (world genre)
+cargo run -- samples/deck.md                     # present a Marp-style deck (deck genre)
 cargo run -- path/to/doc.md                      # open any Markdown file
 cargo run -- doc.md --print-ron                  # compiled world as RON, no window
 LOCALGPT_MD_SCREENSHOT=/tmp/shot.png cargo run   # render the first stop offscreen to a PNG, then exit
@@ -46,6 +47,12 @@ plus `tour.rs` (camera and caption), `watch.rs` (polling hot reload),
 - **`doc.rs`, `draft.rs`, `recipe.rs`, `sidecar.rs` are pure** (no Bevy
   rendering; sidecar's only Bevy touch is the `Resource` derive). Keep them
   that way; they are what moves into a shared crate later (PLAN.md M5).
+- **Genres** (`front_matter.genre`): `world` (default) — one section per
+  `##` heading on a winding path; `deck` — one section per `---`-separated
+  slide (Marp/Slidev) on a straight path. Deck separators must be
+  blank-line padded: a bare `---` directly under text is a CommonMark setext
+  H2, not a separator. In a deck, headings don't start sections; the first
+  heading in a slide names it.
 - **The world format is `localgpt-world-types`** (crates.io, serde-only).
   Don't invent a parallel scene format; if something is missing, add it
   upstream in `localgpt/crates/world-types`. Every manifest must pass

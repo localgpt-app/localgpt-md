@@ -58,8 +58,16 @@ Markdown front end.
 
 ## M4 — Genres
 
-- `genre: deck` first: `---`-separated slides become tour stops and the LLM
-  stages each slide.
+- ✅ `genre: deck` (M4a): `---`-separated slides (Marp/Slidev style) become
+  tour stops along a straight presentation path; the first heading in a
+  slide names it; the prompt carries a deck-specific note (one focal idea,
+  palette from the slide's subject).
+- Prompt tuning (rode along): the neon colors of the first M1 run are gone —
+  recipes now come back muted and desaturated. Known limitation: the 8B
+  mode-collapses on similar accents across slides (5 of 6 shared a hue in
+  the sample run). Follow-ups if it matters: give the prompt the slide
+  index/total so it can lean away from earlier slides, or a deterministic
+  hue de-dup pass when two regions' accents land within ε.
 - Then `script`, `adventure`, and `journal`.
 
 ## M5 — Extract the shared runtime

@@ -17,6 +17,9 @@ use crate::sidecar::RecipeStore;
 
 /// Distance between consecutive regions along the path.
 const SPACING: f32 = 22.0;
+/// Slide spacing on a deck's straight presentation path — a little tighter
+/// than the world's winding stroll.
+const DECK_SPACING: f32 = 16.0;
 /// Radius of each region's platform.
 const PLATFORM_RADIUS: f32 = 6.0;
 /// Height of a platform's top surface (the ground is at y = 0).
@@ -48,8 +51,9 @@ pub fn compile_with(doc: &Doc, recipes: &RecipeStore) -> wt::WorldManifest {
     let mut entities = vec![lead_in_ground(), sun()];
     let mut waypoints = Vec::with_capacity(doc.sections.len());
     let mut llm_styled = false;
+    let deck = doc.is_deck();
     for (index, section) in doc.sections.iter().enumerate() {
-        let center = region_center(index);
+        let center = region_center(index, deck);
         let recipe = recipes.get(&section.hash);
         llm_styled |= recipe.is_some();
         entities.extend(region(index, section, center, recipe));
@@ -134,10 +138,16 @@ fn meta(doc: &Doc, llm_styled: bool) -> wt::WorldMeta {
     }
 }
 
-/// Regions wind gently left and right as the path heads away (towards −z).
-fn region_center(index: usize) -> [f32; 3] {
+/// Where a section's region sits. The `world` genre winds gently left and
+/// right as the path heads away (towards −z); a `deck` lays its slides out
+/// along one straight presentation path.
+fn region_center(index: usize, deck: bool) -> [f32; 3] {
     let t = index as f32;
-    [(t * 0.9).sin() * 8.0, 0.0, -t * SPACING]
+    if deck {
+        [0.0, 0.0, -t * DECK_SPACING]
+    } else {
+        [(t * 0.9).sin() * 8.0, 0.0, -t * SPACING]
+    }
 }
 
 /// Ground under the first viewpoint, before region 1's own strip begins.
@@ -472,6 +482,29 @@ mod tests {
         assert!(world.tours.is_empty());
         assert!(world.camera.is_none());
         assert_eq!(world.entities.len(), 2); // lead-in ground + sun
+    }
+
+    #[test]
+    fn deck_lays_out_a_straight_presentation_path() {
+        let doc = Doc::parse(include_str!("../samples/deck.md"), "deck");
+        assert!(doc.is_deck());
+        let world = compile(&doc);
+        assert!(validate(&world).is_empty());
+
+        // One stop per slide, in deck order.
+        let stops: Vec<_> = world.tours[0]
+            .waypoints
+            .iter()
+            .map(|w| w.description.clone().unwrap())
+            .collect();
+        let titles: Vec<_> = doc.sections.iter().map(|s| s.heading.clone()).collect();
+        assert_eq!(stops, titles);
+
+        // Collinear on x = 0, evenly spaced, walking away from the viewer.
+        for (index, stop) in world.tours[0].waypoints.iter().enumerate() {
+            assert_eq!(stop.position[0], 0.0);
+            assert!((stop.position[2] - (14.0 - index as f32 * DECK_SPACING)).abs() < 1e-6);
+        }
     }
 
     #[test]

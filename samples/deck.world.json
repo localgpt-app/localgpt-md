@@ -1,0 +1,132 @@
+{
+  "version": 1,
+  "generator": "localgpt-md",
+  "recipes": {
+    "076917ba6d7af5fe05d7a58088157b4d8e0b6959f4ddd19662105ca2e526ee82": {
+      "accent": [
+        0.3,
+        0.5,
+        0.7
+      ],
+      "ground": [
+        0.4,
+        0.6,
+        0.8
+      ],
+      "landmark": {
+        "kind": "cube",
+        "scale": 1.5,
+        "emissive": 0.2
+      },
+      "props": {
+        "kind": "blocks",
+        "count": 6
+      }
+    },
+    "4efbe2914f1174714558d25f25b25816a33efe13657d29f8021a6643c9af1927": {
+      "accent": [
+        0.3,
+        0.2,
+        0.5
+      ],
+      "ground": [
+        0.4,
+        0.3,
+        0.2
+      ],
+      "landmark": {
+        "kind": "cube",
+        "scale": 1.5,
+        "emissive": 0.1
+      },
+      "props": {
+        "kind": "blocks",
+        "count": 6
+      }
+    },
+    "8d47533d386c30fb52afc31e97f840a533c64d46d24eaf9635d3a651ed94117c": {
+      "accent": [
+        0.3,
+        0.2,
+        0.5
+      ],
+      "ground": [
+        0.4,
+        0.3,
+        0.6
+      ],
+      "landmark": {
+        "kind": "cube",
+        "scale": 1.5,
+        "emissive": 0.1
+      },
+      "props": {
+        "kind": "blocks",
+        "count": 6
+      }
+    },
+    "bfef8a5bbf496000564e1e877109c8ea28c99c9ede749f960a162a43d001dc44": {
+      "accent": [
+        0.3,
+        0.2,
+        0.5
+      ],
+      "ground": [
+        0.4,
+        0.3,
+        0.6
+      ],
+      "landmark": {
+        "kind": "cube",
+        "scale": 1.5,
+        "emissive": 0.1
+      },
+      "props": {
+        "kind": "blocks",
+        "count": 6
+      }
+    },
+    "cd05a2ded400165954b7910bbd0c74986878170b5e059a09341fc7cb75b71b0c": {
+      "accent": [
+        0.3,
+        0.2,
+        0.5
+      ],
+      "ground": [
+        0.4,
+        0.3,
+        0.2
+      ],
+      "landmark": {
+        "kind": "cube",
+        "scale": 1.5,
+        "emissive": 0.1
+      },
+      "props": {
+        "kind": "blocks",
+        "count": 6
+      }
+    },
+    "f8b6f6fcfcf4b9844ed8268e609cada2e8d0202fe2cf918c6022b9e207336c93": {
+      "accent": [
+        0.3,
+        0.2,
+        0.5
+      ],
+      "ground": [
+        0.4,
+        0.3,
+        0.2
+      ],
+      "landmark": {
+        "kind": "cube",
+        "scale": 1.5,
+        "emissive": 0.1
+      },
+      "props": {
+        "kind": "blocks",
+        "count": 6
+      }
+    }
+  }
+}

@@ -16,12 +16,17 @@ inference path are ported from LocalGPT Verse (Bonsai-8B via mistral.rs; see
 
 ```bash
 cargo run                            # open samples/hello.md
+cargo run -- samples/deck.md         # present a Marp-style deck as a 3D talk
 cargo run -- path/to/notes.md        # open any Markdown file
 cargo run -- notes.md --print-ron    # print the compiled world as RON and exit
 ```
 
-Keep the file open in your editor: every save rebuilds the world, and the
-camera stays on the section you're looking at.
+Two genres: the default `world` makes every `##` section a place on a
+winding path; `genre: deck` (front matter) splits on `---` separators,
+Marp/Slidev style, and lays the slides out along a straight presentation
+path — arrow keys advance the talk. Keep the file open in your editor:
+every save rebuilds the world, and the camera stays on the slide you're
+looking at.
 
 | Key | Action |
 |---|---|
@@ -67,12 +72,13 @@ watch.rs: poll the file, recompile on save     tour.rs: camera + caption
 ```
 
 - **`doc.rs`**: Markdown → title, front matter (`genre: …`), and one section
-  per `##` heading, each with a hash of its text.
-- **`draft.rs`**: sections → a `WorldManifest` with one region per section
-  along a winding path, and a tour with one stop per section. Deterministic,
-  with entity ids that are stable per section, so editing one section leaves
-  the other regions untouched. A cached recipe for a section's hash restyles
-  just that region.
+  per place — a `##` heading (`world`) or a `---`-separated slide (`deck`).
+  Each section carries a hash of its text.
+- **`draft.rs`**: sections → a `WorldManifest` with one region per section —
+  a winding path (`world`) or a straight presentation path (`deck`) — and a
+  tour with one stop per section. Deterministic, with entity ids that are
+  stable per section, so editing one section leaves the other regions
+  untouched. A cached recipe for a section's hash restyles just that region.
 - **`recipe.rs` / `sidecar.rs`** (pure): the clamped per-region recipe type
   with its lenient LLM-reply parse, and the hash-keyed `<doc>.world.json`
   cache. Compiled in every build; only the authoring is feature-gated.
