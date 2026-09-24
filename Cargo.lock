@@ -5388,7 +5388,7 @@ dependencies = [
 [[package]]
 name = "localgpt-world-bevy"
 version = "0.3.6"
-source = "git+https://github.com/localgpt-app/localgpt?branch=claude%2Flocalgpt-world-strategy-vl97wr#23b8af0252c5998a7a01064c0a4879aba90c5a8a"
+source = "git+https://github.com/localgpt-app/localgpt?rev=23b8af0252c5998a7a01064c0a4879aba90c5a8a#23b8af0252c5998a7a01064c0a4879aba90c5a8a"
 dependencies = [
  "bevy",
  "localgpt-world-types",
@@ -5397,7 +5397,7 @@ dependencies = [
 [[package]]
 name = "localgpt-world-export"
 version = "0.3.6"
-source = "git+https://github.com/localgpt-app/localgpt?branch=claude%2Flocalgpt-world-strategy-vl97wr#23b8af0252c5998a7a01064c0a4879aba90c5a8a"
+source = "git+https://github.com/localgpt-app/localgpt?rev=23b8af0252c5998a7a01064c0a4879aba90c5a8a#23b8af0252c5998a7a01064c0a4879aba90c5a8a"
 dependencies = [
  "localgpt-world-types",
  "serde_json",
@@ -5406,7 +5406,7 @@ dependencies = [
 [[package]]
 name = "localgpt-world-types"
 version = "0.3.6"
-source = "git+https://github.com/localgpt-app/localgpt?branch=claude%2Flocalgpt-world-strategy-vl97wr#23b8af0252c5998a7a01064c0a4879aba90c5a8a"
+source = "git+https://github.com/localgpt-app/localgpt?rev=23b8af0252c5998a7a01064c0a4879aba90c5a8a#23b8af0252c5998a7a01064c0a4879aba90c5a8a"
 dependencies = [
  "serde",
  "serde_json",
