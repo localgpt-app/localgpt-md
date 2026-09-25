@@ -24,9 +24,9 @@ pulldown-cmark = { version = "0.13", default-features = false }
 # soundtrack/modulation types and the two new crates; switch these back to
 # plain version requirements (`"0.3.7"`) then. A commit pin, not a branch, so
 # it survives the branch being merged and deleted.
-localgpt-world-types = { git = "https://github.com/localgpt-app/localgpt", rev = "6825213b4485d345175aa3fe199cb53fd8fea457" }
-localgpt-world-bevy = { git = "https://github.com/localgpt-app/localgpt", rev = "6825213b4485d345175aa3fe199cb53fd8fea457" }
-localgpt-world-export = { git = "https://github.com/localgpt-app/localgpt", rev = "6825213b4485d345175aa3fe199cb53fd8fea457" }
+localgpt-world-types = { git = "https://github.com/localgpt-app/localgpt", rev = "b77c6374c960659397b8777ed4c00d13d10d0868" }
+localgpt-world-bevy = { git = "https://github.com/localgpt-app/localgpt", rev = "b77c6374c960659397b8777ed4c00d13d10d0868" }
+localgpt-world-export = { git = "https://github.com/localgpt-app/localgpt", rev = "b77c6374c960659397b8777ed4c00d13d10d0868" }
 
 # `--print-ron` / `--export x.ron`: the same serializer and version Gen uses
 # for world.ron.
