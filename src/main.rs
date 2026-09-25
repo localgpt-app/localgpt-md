@@ -35,10 +35,12 @@ use bevy::ui::IsDefaultUiCamera;
 use bevy::window::ExitCondition;
 use bevy::winit::WinitPlugin;
 
+use localgpt_world_types as wt;
+
 use crate::scene::{CurrentWorld, TourCamera};
 
 const USAGE: &str = "\
-Usage: localgpt-md [FILE.md] [--print-ron] [--generate]
+Usage: localgpt-md [FILE.md] [--print-ron] [--export OUT] [--generate]
 
 Opens FILE.md (default: samples/hello.md) as a walkable 3D world. Each ##
 section becomes a place, and the world rebuilds whenever the file is saved.
@@ -46,6 +48,10 @@ section becomes a place, and the world rebuilds whenever the file is saved.
   --print-ron   Print the compiled world as RON (LocalGPT Gen's world.ron
                 format) and exit without opening a window. Cached LLM recipes
                 (the .world.json sidecar) are applied.
+  --export OUT  Write the compiled world to OUT and exit — no window. The
+                extension picks the format: .json (the LocalGPT world format
+                the web viewer reads), .ron (Gen's world.ron), or .html (a
+                self-contained page with the shared web viewer).
   --generate    Have the local LLM style every section without a cached
                 recipe, write the sidecar, and exit — no window. Needs the
                 `llm`/`llm-metal` feature and a model (scripts/fetch-bonsai.sh).
@@ -61,10 +67,19 @@ const DEFAULT_DOC: &str = "samples/hello.md";
 fn main() -> AppExit {
     let mut path = None;
     let mut print_ron = false;
+    let mut export = None;
     let mut generate = false;
-    for arg in std::env::args().skip(1) {
+    let mut args = std::env::args().skip(1);
+    while let Some(arg) = args.next() {
         match arg.as_str() {
             "--print-ron" => print_ron = true,
+            "--export" => match args.next() {
+                Some(out) => export = Some(PathBuf::from(out)),
+                None => {
+                    eprintln!("localgpt-md: --export needs a file name\n\n{USAGE}");
+                    return AppExit::error();
+                }
+            },
             "--generate" => generate = true,
             "-h" | "--help" => {
                 println!("{USAGE}");
@@ -109,8 +124,7 @@ fn main() -> AppExit {
     }
 
     if print_ron {
-        let config = ron::ser::PrettyConfig::default();
-        return match ron::ser::to_string_pretty(&world.manifest, config) {
+        return match to_ron(&world.manifest) {
             Ok(text) => {
                 println!("{text}");
                 AppExit::Success
@@ -120,6 +134,10 @@ fn main() -> AppExit {
                 AppExit::error()
             }
         };
+    }
+
+    if let Some(out) = export {
+        return export_world(&world.manifest, &out);
     }
 
     let smoke = std::env::var("LOCALGPT_MD_SCREENSHOT").ok();
@@ -166,6 +184,50 @@ fn main() -> AppExit {
             .add_systems(Update, smoke_screenshot);
     }
     app.run()
+}
+
+/// The manifest as Gen's world.ron.
+fn to_ron(manifest: &wt::WorldManifest) -> Result<String, ron::Error> {
+    ron::ser::to_string_pretty(manifest, ron::ser::PrettyConfig::default())
+}
+
+/// `--export OUT`: the compiled world as `.json` (the web viewer's format),
+/// `.ron` (Gen's) or `.html` (a page with the shared web viewer, the same
+/// bytes Gen's `gen_export_html` writes).
+fn export_world(manifest: &wt::WorldManifest, out: &Path) -> AppExit {
+    let text = match out.extension().and_then(|e| e.to_str()) {
+        Some("json") => localgpt_world_export::to_json_pretty(manifest),
+        Some("ron") => match to_ron(manifest) {
+            Ok(text) => text,
+            Err(err) => {
+                eprintln!("localgpt-md: {err}");
+                return AppExit::error();
+            }
+        },
+        Some("html") | Some("htm") => localgpt_world_export::generate_html(manifest),
+        _ => {
+            eprintln!(
+                "localgpt-md: --export {}: use a .json, .ron or .html file name",
+                out.display()
+            );
+            return AppExit::error();
+        }
+    };
+    match std::fs::write(out, text) {
+        Ok(()) => {
+            println!(
+                "{} — {} entities -> {}",
+                manifest.meta.name,
+                manifest.entities.len(),
+                out.display()
+            );
+            AppExit::Success
+        }
+        Err(err) => {
+            eprintln!("localgpt-md: {}: {err}", out.display());
+            AppExit::error()
+        }
+    }
 }
 
 /// Read, parse, and compile a document, applying whatever recipes the

@@ -99,6 +99,7 @@ pub fn compile_with(doc: &Doc, recipes: &RecipeStore) -> wt::WorldManifest {
         camera,
         avatar: None,
         tours,
+        soundtrack: None,
         layout_file: None,
         region_files: None,
         behavior_files: None,

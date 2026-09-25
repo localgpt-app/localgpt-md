@@ -5374,6 +5374,8 @@ version = "0.1.0"
 dependencies = [
  "bevy",
  "blake3",
+ "localgpt-world-bevy",
+ "localgpt-world-export",
  "localgpt-world-types",
  "mistralrs",
  "pulldown-cmark",
@@ -5384,10 +5386,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "localgpt-world-bevy"
+version = "0.3.6"
+source = "git+https://github.com/localgpt-app/localgpt?branch=claude%2Flocalgpt-world-strategy-vl97wr#6825213b4485d345175aa3fe199cb53fd8fea457"
+dependencies = [
+ "bevy",
+ "localgpt-world-types",
+]
+
+[[package]]
+name = "localgpt-world-export"
+version = "0.3.6"
+source = "git+https://github.com/localgpt-app/localgpt?branch=claude%2Flocalgpt-world-strategy-vl97wr#6825213b4485d345175aa3fe199cb53fd8fea457"
+dependencies = [
+ "localgpt-world-types",
+ "serde_json",
+]
+
+[[package]]
 name = "localgpt-world-types"
 version = "0.3.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6a4f3d3a6420a81f0255ae76b606c9c3265ce4e9bc60fae8436a16da4f7fc57d"
+source = "git+https://github.com/localgpt-app/localgpt?branch=claude%2Flocalgpt-world-strategy-vl97wr#6825213b4485d345175aa3fe199cb53fd8fea457"
 dependencies = [
  "serde",
  "serde_json",

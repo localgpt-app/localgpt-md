@@ -18,6 +18,7 @@ cargo run                                        # open samples/hello.md (world 
 cargo run -- samples/deck.md                     # present a Marp-style deck (deck genre)
 cargo run -- path/to/doc.md                      # open any Markdown file
 cargo run -- doc.md --print-ron                  # compiled world as RON, no window
+cargo run -- doc.md --export out.json            # or out.ron / out.html (web viewer page), no window
 LOCALGPT_MD_SCREENSHOT=/tmp/shot.png cargo run   # render the first stop offscreen to a PNG, then exit
 ./scripts/fetch-bonsai.sh                        # fetch the ~5.2 GB LLM (once)
 cargo run --features llm-metal --                # open with live LLM styling
@@ -53,14 +54,18 @@ plus `tour.rs` (camera and caption), `watch.rs` (polling hot reload),
   blank-line padded: a bare `---` directly under text is a CommonMark setext
   H2, not a separator. In a deck, headings don't start sections; the first
   heading in a slide names it.
-- **The world format is `localgpt-world-types`** (crates.io, serde-only).
-  Don't invent a parallel scene format; if something is missing, add it
-  upstream in `localgpt/crates/world-types`. Every manifest must pass
-  `draft::validate` (Gen's save-time checks); a test in `draft.rs` enforces it.
-- **`scene.rs` mirrors Gen's mapping** (`localgpt/crates/gen/src/gen3d/plugin.rs`):
-  sRGB colours, linear emissive, `EulerRot::XYZ` in degrees, lux for
-  directional lights and lumens for point/spot, spot angles in radians. Keep
-  them in sync so a manifest renders the same in both apps.
+- **The world format is `localgpt-world-types`** (serde-only). Don't invent
+  a parallel scene format; if something is missing, add it upstream in
+  `localgpt/crates/world-types`. Every manifest must pass `draft::validate`
+  (Gen's save-time checks); a test in `draft.rs` enforces it. The three
+  world crates are pinned to the `localgpt` repository in `Cargo.toml` until
+  the next crates.io release; switch them back to version requirements then.
+- **`scene.rs` renders through `localgpt-world-bevy`**, the one Bevy mapping
+  Gen and Verse use too (sRGB colours, linear emissive, `EulerRot::XYZ` in
+  degrees, lux for directional lights and lumens for point/spot, spot angles
+  in radians). Never re-implement a mapping here; fix it upstream so every
+  app changes together. `--export x.html` embeds `localgpt-world-export`'s
+  viewer, the same bytes Gen's `gen_export_html` writes.
 - **Entity ids are stable per section**: `(section_index + 1) * 1000 + n`;
   ids 1–999 are global (ground, sun). Unchanged sections stay identical across
   edits, which the per-section cache relies on.
