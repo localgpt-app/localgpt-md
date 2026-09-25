@@ -113,5 +113,8 @@ generations (1-bit/2-bit) cannot run on mistral.rs 0.8 — skip them.
 - Commits: conventional commits (`feat:`, `fix:`, `docs:`, `chore:`,
   `refactor:`), with no Co-Authored-By or Claude-Session trailers.
 - Never use `sed` to edit Rust files; use the Edit tool.
-- `website/` is the static landing page for localgpt.md (no build step). It
-  links back to localgpt.app.
+- `website/` is the static landing page for md.localgpt.app (no build step;
+  `website/deploy.sh` deploys it); localgpt.md redirects there. The docs live
+  on localgpt.app, in the `localgpt` repository's `website/docs/md/`: update
+  them there when commands, keys, export or the LLM tier change, and keep
+  README.md to the quick start.

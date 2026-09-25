@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>LocalGPT MD</title>
 <meta name="description" content="Open a Markdown file and walk through it as a 3D world. Every section becomes a place, and saving the file rebuilds the world. Runs on your machine.">
-<link rel="canonical" href="https://localgpt.md/">
+<link rel="canonical" href="https://md.localgpt.app/">
 <link rel="icon" href="localgpt-icon.svg" type="image/svg+xml">
 <style>
   :root {
@@ -65,8 +65,8 @@
   }
   .wordmark .mark { width: 26px; height: 26px; display: block; }
   .wordmark span { color: var(--accent); }
-  .family { font-size: 15px; color: var(--muted); text-decoration: none; }
-  .family:hover { color: var(--ink); }
+  .top-link { font-size: 15px; color: var(--muted); text-decoration: none; }
+  .top-link:hover { color: var(--ink); }
 
   .hero { padding: 40px 0 28px; }
   h1 {
@@ -120,10 +120,9 @@
   .next p { margin: 0 0 10px; color: var(--muted); }
   .next p:last-child { margin-bottom: 0; }
 
-  footer {
-    border-top: 1px solid var(--line); padding: 22px 0 40px; font-size: 14px; color: var(--muted);
-    display: flex; flex-wrap: wrap; gap: 8px 18px;
-  }
+  footer { border-top: 1px solid var(--line); padding: 22px 0 40px; font-size: 14px; color: var(--muted); }
+  footer .row { display: flex; flex-wrap: wrap; gap: 8px 18px; }
+  footer .row + .row { margin-top: 12px; }
   footer a { color: var(--muted); }
 </style>
 </head>
@@ -131,7 +130,7 @@
   <div class="wrap">
     <header class="top">
       <a class="wordmark" href="/"><img class="mark" src="localgpt-icon.svg" alt="">LocalGPT <span>MD</span></a>
-      <a class="family" href="https://verse.localgpt.app">verse.localgpt.app &rarr;</a>
+      <a class="top-link" href="https://localgpt.app/docs/md">Docs &rarr;</a>
     </header>
 
     <section class="hero">
@@ -234,9 +233,20 @@ that glow where they break.</span></pre>
     </section>
 
     <footer>
-      <span>LocalGPT MD is part of <a href="https://localgpt.app">LocalGPT</a>.</span>
-      <a href="https://github.com/localgpt-app/localgpt-md">Source on GitHub</a>
-      <span>Apache-2.0</span>
+      <div class="row">
+        <span>LocalGPT MD is part of <a href="https://localgpt.app">LocalGPT</a>.</span>
+        <a href="https://localgpt.app/docs/md">Docs</a>
+        <a href="https://github.com/localgpt-app/localgpt-md">Source on GitHub</a>
+        <span>Apache-2.0</span>
+      </div>
+      <nav class="row" aria-label="The LocalGPT family">
+        <span>Family:</span>
+        <a href="https://localgpt.app" title="A local AI assistant with persistent memory.">LocalGPT</a>
+        <a href="https://gen.localgpt.app" title="Worlds from words.">LocalGPT Gen</a>
+        <a href="https://verse.localgpt.app" title="A 3D world for every song.">LocalGPT Verse</a>
+        <a href="https://localgpt.world" title="Worlds from every app, in your browser.">localgpt.world</a>
+        <a href="https://localgpt.rs" title="The devlog: building it all in Rust.">localgpt.rs</a>
+      </nav>
     </footer>
   </div>
 </body>
