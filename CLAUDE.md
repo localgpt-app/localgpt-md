@@ -20,7 +20,7 @@ cargo run -- path/to/doc.md                      # open any Markdown file
 cargo run -- doc.md --print-ron                  # compiled world as RON, no window
 cargo run -- doc.md --export out.json            # or out.ron / out.html (web viewer page), no window
 LOCALGPT_MD_SCREENSHOT=/tmp/shot.png cargo run   # render the first stop offscreen to a PNG, then exit
-./scripts/fetch-bonsai.sh                        # fetch the ~5.2 GB LLM (once)
+./scripts/fetch-bonsai.sh                        # fetch the ~5.2 GB LLM once, shared with Verse and Gen
 cargo run --features llm-metal --                # open with live LLM styling
 cargo run --features llm-metal -- doc.md --generate   # style all sections headless, exit
 cargo test
@@ -84,8 +84,11 @@ plus `tour.rs` (camera and caption), `watch.rs` (polling hot reload),
   §10): plain instructed-JSON generation with a lenient parse — mistral.rs
   0.8's grammar-constrained `generate_structured` hangs on GGUF (so no
   `schemars`); the 5 GB Q4_K_M needs `llm-metal` (macOS-only, never in the
-  Linux CI job); model discovery is `$LOCALGPT_MD_LLM` → `assets/llm` →
-  Verse's `assets/llm`.
+  Linux CI job); model discovery is `$LOCALGPT_MD_LLM` → the directory the
+  LocalGPT apps share (`$LOCALGPT_LLM_DIR`, default
+  `~/.local/share/localgpt/models/llm`; `shared_llm_dir` in `src/llm.rs`
+  must match localgpt-core's and Verse's) → `assets/llm` → Verse's
+  `assets/llm`.
 
 ## Bevy 0.19 notes
 

@@ -19,8 +19,11 @@
 # dropped into assets/llm/ is picked up the same way — src/llm.rs loads the
 # first .gguf it finds, so no code change is needed.
 #
-# Reuse note: src/llm.rs also looks in ../localgpt-verse/assets/llm/, so a
-# model fetched for Verse is found without downloading it twice.
+# Shared model directory: the model goes to ~/.local/share/localgpt/models/llm
+# ($LOCALGPT_LLM_DIR overrides; $XDG_DATA_HOME moves the base), the directory
+# LocalGPT MD, Verse and Gen all read, so one ~5 GB download serves every app.
+# A copy already in this repo's assets/llm/ (where this script used to put it)
+# is moved there instead of being downloaded again.
 #
 # Newer Bonsai generations exist (Ternary-Bonsai-2-27B, 2026-09), but the
 # ternary quants are the class that failed to parse in mistral.rs 0.8, and
@@ -30,7 +33,9 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-OUT="assets/llm"
+# Keep in step with src/llm.rs `shared_llm_dir` (and localgpt-core's).
+OUT="${LOCALGPT_LLM_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/localgpt/models/llm}"
+LEGACY="assets/llm"
 mkdir -p "$OUT"
 
 # Defaults; override with BONSAI_REPO / BONSAI_FILE / BONSAI_TOKENIZER_REPO.
@@ -40,8 +45,12 @@ TOK_REPO="${BONSAI_TOKENIZER_REPO:-prism-ml/Bonsai-8B-unpacked}"
 
 fetch() { # <label> <url> <dest>
   local label="$1" url="$2" dest="$3"
+  local legacy="$LEGACY/$(basename "$dest")"
   if [ -s "$dest" ]; then
     echo "  have $dest"
+  elif [ -s "$legacy" ]; then
+    echo "moving $legacy -> $dest (shared with the other LocalGPT apps)"
+    mv "$legacy" "$dest"
   else
     echo "fetching $label -> $dest (resumable — re-run if interrupted)"
     # -C - resumes a partial download; -L follows HF redirects.

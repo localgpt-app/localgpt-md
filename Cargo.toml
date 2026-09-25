@@ -44,13 +44,20 @@ serde_json = "1"
 # mistral.rs, ported from LocalGPT Verse. No `schemars` on purpose —
 # grammar-constrained generation hangs on GGUF (mistral.rs 0.8), so nothing
 # uses a schema; safety is RegionRecipe::clamped + the lenient parse.
-llm = ["dep:mistralrs", "dep:tokio"]
+llm = ["dep:mistralrs", "dep:tokio", "dep:etcetera"]
 # Apple-Silicon GPU path for the ~5 GB Q4_K_M (macOS-only; the CPU device
 # map can't hold it beside a renderer — same rule as Verse).
 llm-metal = ["llm", "mistralrs/metal"]
 
 [dependencies.mistralrs]
 version = "0.8"
+optional = true
+
+# Resolves the model directory LocalGPT's apps share
+# (`~/.local/share/localgpt/models/llm`, see src/llm.rs) the same way
+# localgpt-core does.
+[dependencies.etcetera]
+version = "0.11"
 optional = true
 
 # Drives each generation's block_on runtime + timeout (mistral.rs is async).

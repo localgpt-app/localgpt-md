@@ -137,14 +137,17 @@ pub fn prompt_excerpt(body: &str) -> String {
     }
 }
 
-/// Where the model lives: `$LOCALGPT_MD_LLM`, then `assets/llm/` (where the
-/// repo's `scripts/fetch-bonsai.sh` puts it), then a sibling Verse checkout's
-/// `assets/llm/` — so a model fetched for Verse is reused rather than
-/// downloaded twice. Returns the `(directory, gguf, tokenizer)` trio
-/// `GgufModelBuilder` wants, or `None` (with a warning) when absent.
+/// Where the model lives: `$LOCALGPT_MD_LLM`, then the directory every
+/// LocalGPT app shares ([`shared_llm_dir`], where `scripts/fetch-bonsai.sh`
+/// puts it, so one download serves MD, Verse and Gen), then the older
+/// per-app spots: `assets/llm/` and a sibling Verse checkout's `assets/llm/`.
+/// Returns the `(directory, gguf, tokenizer)` trio `GgufModelBuilder` wants,
+/// or `None` (with a warning) when absent.
 fn locate_model() -> Option<(PathBuf, String, String)> {
+    let shared = shared_llm_dir();
     let candidates = [
         std::env::var_os("LOCALGPT_MD_LLM").map(PathBuf::from),
+        shared.clone(),
         Some(PathBuf::from("assets/llm")),
         Some(PathBuf::from("../localgpt-verse/assets/llm")),
     ];
@@ -154,12 +157,37 @@ fn locate_model() -> Option<(PathBuf, String, String)> {
             return Some(found);
         }
     }
+    let shared = shared.map_or_else(|| "$LOCALGPT_LLM_DIR".into(), |d| d.display().to_string());
     warn!(
-        "llm: no model found (looked in $LOCALGPT_MD_LLM, assets/llm, \
+        "llm: no model found (looked in $LOCALGPT_MD_LLM, {shared}, assets/llm, \
          ../localgpt-verse/assets/llm) — rule drafts only; run \
          scripts/fetch-bonsai.sh"
     );
     None
+}
+
+/// The local-LLM directory LocalGPT's apps share: `$LOCALGPT_LLM_DIR`, else
+/// `<XDG data home>/localgpt/models/llm` (`~/.local/share/localgpt/models/llm`).
+/// The same rule as `localgpt_core::paths::shared_llm_dir` — keep them in
+/// step (Verse repeats it too).
+fn shared_llm_dir() -> Option<PathBuf> {
+    shared_llm_dir_from(std::env::var_os("LOCALGPT_LLM_DIR").map(PathBuf::from))
+}
+
+fn shared_llm_dir_from(over: Option<PathBuf>) -> Option<PathBuf> {
+    use etcetera::BaseStrategy;
+
+    if let Some(dir) = over.filter(|dir| dir.is_absolute()) {
+        return Some(dir);
+    }
+    let strategy = etcetera::choose_base_strategy().ok()?;
+    Some(
+        strategy
+            .data_dir()
+            .join("localgpt")
+            .join("models")
+            .join("llm"),
+    )
 }
 
 /// [`locate_model`] over one directory, testable against a temp dir so a
@@ -250,6 +278,17 @@ mod tests {
                 "tokenizer.json".into()
             ))
         );
+    }
+
+    #[test]
+    fn shared_llm_dir_matches_localgpt_and_takes_absolute_overrides() {
+        let default = shared_llm_dir_from(None).unwrap();
+        assert!(default.ends_with("localgpt/models/llm"), "{default:?}");
+        assert_eq!(
+            shared_llm_dir_from(Some("/models/here".into())),
+            Some(PathBuf::from("/models/here"))
+        );
+        assert_eq!(shared_llm_dir_from(Some("relative".into())), Some(default));
     }
 
     #[test]
