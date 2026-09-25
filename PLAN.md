@@ -87,5 +87,5 @@ Markdown front end.
 ## Open questions
 
 - Free-roam (WASD) as well as the tour, or tour only?
-- A WASM build on localgpt.md, or desktop downloads only?
+- A WASM build on md.localgpt.app, or desktop downloads only?
 - Export by writing `world.ron` and reusing Gen's HTML/glTF exporters?
