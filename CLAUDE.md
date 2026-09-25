@@ -108,7 +108,7 @@ generations (1-bit/2-bit) cannot run on mistral.rs 0.8 — skip them.
 - This repo is public. Never name the closed-source sibling 3D platform; use
   generic terms such as "connected 3D app".
 - Commits: conventional commits (`feat:`, `fix:`, `docs:`, `chore:`,
-  `refactor:`), with no Co-Authored-By lines.
+  `refactor:`), with no Co-Authored-By or Claude-Session trailers.
 - Never use `sed` to edit Rust files; use the Edit tool.
 - `website/` is the static landing page for localgpt.md (no build step). It
   links back to localgpt.app.
