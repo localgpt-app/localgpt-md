@@ -1,0 +1,49 @@
+# cargo-deny policy. CI runs `cargo deny check licenses bans sources` on every
+# change and `cargo deny check advisories` on main and weekly (.github/workflows/ci.yml).
+
+[graph]
+# Resolve the opt-in tiers too (llm, llm-metal), so their dependencies are
+# audited as well.
+all-features = true
+
+[advisories]
+ignore = [
+    { id = "RUSTSEC-2025-0057", reason = "fxhash: unmaintained, transitive via bm25 -> mistralrs-core (llm feature); no upgrade available" },
+    { id = "RUSTSEC-2025-0119", reason = "number_prefix: unmaintained, transitive via indicatif -> hf-hub -> mistralrs (llm feature); no upgrade available" },
+    { id = "RUSTSEC-2024-0436", reason = "paste: unmaintained, transitive via gemm/candle -> mistralrs (llm feature); no upgrade available" },
+    { id = "RUSTSEC-2026-0192", reason = "ttf-parser: unmaintained, transitive via winit -> sctk-adwaita (Wayland window decorations); no upgrade available" },
+]
+
+[licenses]
+allow = [
+    "0BSD",
+    "MIT",
+    "MIT-0",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Unicode-3.0",
+    "Zlib",
+    "BSL-1.0",
+    "OFL-1.1",
+    "NCSA",
+    "CC0-1.0",
+    "MPL-2.0",
+    "CDLA-Permissive-2.0",
+    "Ubuntu-font-1.0",
+]
+confidence-threshold = 0.8
+unused-allowed-license = "allow"
+
+[bans]
+multiple-versions = "warn"
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+# The three world crates are pinned to the localgpt repository until their
+# next crates.io release (see Cargo.toml).
+allow-git = ["https://github.com/localgpt-app/localgpt"]

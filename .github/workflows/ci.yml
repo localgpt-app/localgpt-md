@@ -1,0 +1,109 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Monday 06:00 UTC: re-run the advisory audit against the current RustSec
+    # database, so a new advisory surfaces without waiting for a push.
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+# A newer push to the same branch supersedes the runs in flight.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  # Line tables keep panic locations and backtraces readable; full debuginfo
+  # would double the target directory and overflow the runner's disk and the
+  # 10 GB cache on the Bevy builds.
+  CARGO_PROFILE_DEV_DEBUG: line-tables-only
+  # Same list as LocalGPT and Verse: alsa/udev for bevy_audio and gilrs,
+  # wayland for wayland-sys, xkbcommon for winit, fontconfig for bevy_text.
+  BEVY_APT_DEPS: libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev libfontconfig1-dev pkg-config
+
+jobs:
+  fmt:
+    name: Format
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - run: cargo fmt -- --check
+
+  clippy:
+    name: Clippy
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends $BEVY_APT_DEPS
+      - run: cargo clippy --all-targets -- -D warnings
+
+  # Tests are headless (doc, draft, recipe, sidecar); no GPU or display needed.
+  test:
+    name: Test
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends $BEVY_APT_DEPS
+      - run: cargo test
+      # The windowless paths, on both genres: compile to RON and export in
+      # the three formats (JSON, RON, web viewer page).
+      - run: |
+          cargo run -- samples/hello.md --print-ron > /dev/null
+          cargo run -- samples/hello.md --export /tmp/hello.world.json
+          cargo run -- samples/deck.md --export /tmp/deck.world.ron
+          cargo run -- samples/deck.md --export /tmp/deck.html
+
+  # The LLM tier (mistral.rs) is compiled by none of the jobs above. Check
+  # only: it pulls heavy native deps; the lint bar stays on the default build.
+  # llm-metal is macOS-only and stays out of CI.
+  features:
+    name: Feature tiers
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends $BEVY_APT_DEPS
+      - run: cargo check --features llm
+
+  # Licenses, bans and sources only change with Cargo.lock and deny.toml, so
+  # they gate every change. Policy lives in deny.toml.
+  deps:
+    name: Dependency policy
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          command: check licenses bans sources
+
+  # RustSec advisories change with the database, not with this repo: they run
+  # on main and weekly, and never block a pull request on code that didn't move.
+  advisories:
+    name: Security advisories
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          command: check advisories
