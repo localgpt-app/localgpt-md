@@ -29,7 +29,10 @@ cargo fmt
 ```
 
 Run `cargo check` after every change and fix all errors before reporting
-completion. Run clippy and fmt before committing.
+completion. Run clippy and fmt before committing. CI
+(`.github/workflows/ci.yml`) runs fmt, clippy, the tests, the sample exports,
+`cargo check --features llm` and cargo-deny (`deny.toml`); advisories run on
+main and weekly, never on pull requests.
 
 To check rendering, use the screenshot mode and read the PNG. It renders to
 an offscreen image with no window, because reading back a window's frame
