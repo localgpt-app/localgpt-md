@@ -18,11 +18,17 @@ bevy = { version = "0.19", features = ["system_font_discovery"] }
 # Markdown → sections. Parsing only; the `html` renderer isn't needed.
 pulldown-cmark = { version = "0.13", default-features = false }
 
-# The shared LocalGPT world data model (serde-only, no Bevy). Compiling a
-# document into a `WorldManifest` keeps MD worlds loadable by LocalGPT Gen.
-localgpt-world-types = "0.3.6"
+# The shared LocalGPT world format: the data model (serde-only), the one Bevy
+# mapping every LocalGPT app renders with, and the web viewer / HTML export.
+# Pinned to the localgpt repository until the next crates.io release publishes
+# the soundtrack/modulation types and the two new crates; switch these back to
+# plain version requirements (`"0.3.7"`) then.
+localgpt-world-types = { git = "https://github.com/localgpt-app/localgpt", branch = "claude/localgpt-world-strategy-vl97wr" }
+localgpt-world-bevy = { git = "https://github.com/localgpt-app/localgpt", branch = "claude/localgpt-world-strategy-vl97wr" }
+localgpt-world-export = { git = "https://github.com/localgpt-app/localgpt", branch = "claude/localgpt-world-strategy-vl97wr" }
 
-# `--print-ron`: the same serializer and version Gen uses for world.ron.
+# `--print-ron` / `--export x.ron`: the same serializer and version Gen uses
+# for world.ron.
 ron = "0.12.1"
 
 # Stable per-section content hashes (seed the draft now; cache keys later).

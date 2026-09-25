@@ -19,7 +19,16 @@ cargo run                            # open samples/hello.md
 cargo run -- samples/deck.md         # present a Marp-style deck as a 3D talk
 cargo run -- path/to/notes.md        # open any Markdown file
 cargo run -- notes.md --print-ron    # print the compiled world as RON and exit
+cargo run -- notes.md --export notes.html   # a self-contained page with the web viewer
+cargo run -- notes.md --export notes.json   # the LocalGPT world format, for localgpt.world
 ```
+
+`--export` writes the compiled world in LocalGPT's shared world format:
+`.json` (what the web viewer on localgpt.world opens), `.ron` (Gen's
+`world.ron`, loadable with `gen_load_world`) or `.html` (a single page with the
+same viewer Gen's `gen_export_html` embeds). Only the document title, the
+first line of the intro and the section headings are in the manifest — body
+text stays in the `.md`.
 
 Two genres: the default `world` makes every `##` section a place on a
 winding path; `genre: deck` (front matter) splits on `---` separators,

@@ -77,6 +77,12 @@ Markdown front end.
   `localgpt-world-types` in the LocalGPT workspace, with the model behind a
   trait so Gen can use it too. Verse and MD then depend on crate versions
   instead of copies.
+- **Done for rendering and export:** `scene.rs` maps the manifest through
+  `localgpt-world-bevy` (Gen's mapping too), and `--export` writes `.json`,
+  `.ron` or `.html` through `localgpt-world-export`, the crate that holds
+  the one web viewer. Both are pinned to the `localgpt` repository until
+  their crates.io release. The runtime pieces above (executor, replay) are
+  still to move.
 
 ## Open questions
 
