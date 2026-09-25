@@ -20,12 +20,13 @@ pulldown-cmark = { version = "0.13", default-features = false }
 
 # The shared LocalGPT world format: the data model (serde-only), the one Bevy
 # mapping every LocalGPT app renders with, and the web viewer / HTML export.
-# Pinned to the localgpt repository until the next crates.io release publishes
-# the soundtrack/modulation types and the two new crates; switch these back to
-# plain version requirements (`"0.3.7"`) then.
-localgpt-world-types = { git = "https://github.com/localgpt-app/localgpt", branch = "claude/localgpt-world-strategy-vl97wr" }
-localgpt-world-bevy = { git = "https://github.com/localgpt-app/localgpt", branch = "claude/localgpt-world-strategy-vl97wr" }
-localgpt-world-export = { git = "https://github.com/localgpt-app/localgpt", branch = "claude/localgpt-world-strategy-vl97wr" }
+# Pinned to a localgpt commit until the next crates.io release publishes the
+# soundtrack/modulation types and the two new crates; switch these back to
+# plain version requirements (`"0.3.7"`) then. A commit pin, not a branch, so
+# it survives the branch being merged and deleted.
+localgpt-world-types = { git = "https://github.com/localgpt-app/localgpt", rev = "6825213b4485d345175aa3fe199cb53fd8fea457" }
+localgpt-world-bevy = { git = "https://github.com/localgpt-app/localgpt", rev = "6825213b4485d345175aa3fe199cb53fd8fea457" }
+localgpt-world-export = { git = "https://github.com/localgpt-app/localgpt", rev = "6825213b4485d345175aa3fe199cb53fd8fea457" }
 
 # `--print-ron` / `--export x.ron`: the same serializer and version Gen uses
 # for world.ron.
