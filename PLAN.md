@@ -88,4 +88,6 @@ Markdown front end.
 
 - Free-roam (WASD) as well as the tour, or tour only?
 - A WASM build on md.localgpt.app, or desktop downloads only?
-- Export by writing `world.ron` and reusing Gen's HTML/glTF exporters?
+- ~~Export by writing `world.ron` and reusing Gen's HTML/glTF exporters?~~ —
+  answered: `--export` writes `.json`/`.ron`/`.html` through
+  `localgpt-world-export` (M5, rendering + export half).

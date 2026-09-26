@@ -5,11 +5,12 @@ becomes a place, and saving the file rebuilds the world while you watch.
 
 Built with [Bevy](https://bevyengine.org/). Part of [LocalGPT](https://localgpt.app).
 
-**Status: M2.** Worlds start from a fast rule-based draft, then a local LLM
+**Status: M4a.** Worlds start from a fast rule-based draft, then a local LLM
 (feature `llm`) restyles each region from what the prose actually says —
 palette, landmark, props — and caches the result per section in a sidecar
-next to the document, so nothing is generated twice. The on-device model and
-inference path are ported from LocalGPT Verse (Bonsai-8B via mistral.rs; see
+next to the document, so nothing is generated twice. A Markdown deck
+(`genre: deck`) presents as a 3D talk. The on-device model and inference
+path are ported from LocalGPT Verse (Bonsai-8B via mistral.rs; see
 [PLAN.md](PLAN.md)).
 
 ## Run

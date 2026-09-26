@@ -100,12 +100,12 @@ buffered events are messages (`MessageWriter<AppExit>`); hierarchy is
 
 ## Plan and reuse
 
-See PLAN.md. M0–M2 are done (draft, LLM recipe tier, sidecar cache). Next:
-M3 (agent tier — Verse's `agent.rs`/`agent_types.rs` tool-calling port),
-M4 (genres, `deck` first), M5 (extract the shared runtime). Verse and
-LocalGPT are Apache-2.0, so copying from them is fine; name the source in a
-comment. Model notes: Bonsai-8B Q4_K_M is the verified default; stock
-Qwen3-8B-Instruct Q4_K_M is a drop-in A/B; the newer ternary Bonsai
+See PLAN.md. M0–M2 and M4a (`deck`) are done; M5 is done for rendering and
+export. Next: M3 (agent tier — Verse's `agent.rs`/`agent_types.rs`
+tool-calling port), then the remaining genres and M5's runtime extraction.
+Verse and LocalGPT are Apache-2.0, so copying from them is fine; name the
+source in a comment. Model notes: Bonsai-8B Q4_K_M is the verified default;
+stock Qwen3-8B-Instruct Q4_K_M is a drop-in A/B; the newer ternary Bonsai
 generations (1-bit/2-bit) cannot run on mistral.rs 0.8 — skip them.
 
 ## Rules
